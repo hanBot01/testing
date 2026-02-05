@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Live View - WebRTC</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #000;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        h1 { color: #00e676; }
+        
+        #my-peer-id {
+            background: #333;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 20px;
+            border: 1px solid #555;
+            color: #ffeb3b;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        
+        #remote-video {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            border: 2px solid #333;
+            margin-top: 20px;
+            background: #111;
+            display: none;
+        }
+
+        .status { margin-top: 10px; color: #888; }
+    </style>
+</head>
+<body>
+
+    <h1>ADMIN LIVE DASHBOARD</h1>
+    <p>Salin ID Admin Anda dan masukkan di halaman Target:</p>
+    <div id="my-peer-id">Generating ID...</div>
+    <p class="status">Status: Menunggu koneksi masuk...</p>
+
+    <video id="remote-video" autoplay playsinline controls></video>
+
+<script>
+    // 1. Buat PeerJS Admin (Tanpa API Key, menggunakan default public server)
+    const peer = new Peer(null, {
+        debug: 2
+    });
+
+    const remoteVideo = document.getElementById('remote-video');
+    const idDisplay = document.getElementById('my-peer-id');
+    const statusText = document.querySelector('.status');
+
+    // 2. Tampilkan ID Admin saat siap
+    peer.on('open', (id) => {
+        idDisplay.innerText = id;
+        console.log('My Admin ID: ' + id);
+    });
+
+    // 3. Terima panggilan dari target
+    peer.on('call', (call) => {
+        statusText.innerText = "Status: Target terdeteksi! Menghubungkan...";
+        
+        // Jawab panggilan (hanya menerima video, tanpa audio)
+        call.answer(); 
+
+        // Tampilkan stream video
+        call.on('stream', (remoteStream) => {
+            remoteVideo.srcObject = remoteStream;
+            remoteVideo.style.display = 'block';
+            idDisplay.style.display = 'none'; // Sembunyikan ID agar rapi
+            statusText.innerText = "Status: LIVE CONNECTED (WebRTC)";
+        });
+
+        call.on('close', () => {
+            statusText.innerText = "Status: Koneksi terputus.";
+            remoteVideo.style.display = 'none';
+            idDisplay.style.display = 'block';
+        });
+    });
+
+    peer.on('error', (err) => {
+        console.error(err);
+        alert("Gagal koneksi ke PeerJS Server. Coba refresh.");
+    });
+</script>
+
+</body>
+</html>
