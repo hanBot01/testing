@@ -24,9 +24,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* Pastikan scroll berfungsi jika konten panjang */
             overflow-y: auto;
-            padding-bottom: 100px; /* Ruang untuk kontrol bawah */
+            padding-bottom: 100px; /* Ruang kontrol bawah */
         }
 
         .container {
@@ -232,16 +231,15 @@
 
     <!-- Kontrol Admin (Switch Kamera & Flash) -->
     <div id="adminControls">
-        <!-- Info Mode -->
-        <span id="camModeLabel" style="font-size: 10px; color:#aaa; display:flex; align-items:center;">CAM 1</span>
+        <span id="camModeLabel" style="font-size: 10px; color:#aaa; display:flex; align-items:center;">REMOTE</span>
         
         <!-- Switch Kamera -->
         <button class="ctrl-btn" id="btnSwitchCam" onclick="requestCameraSwitch()" title="Minta Target Ganti Kamera">
             🔄
         </button>
         
-        <!-- Request Flash -->
-        <button class="ctrl-btn" id="btnFlash" onclick="requestFlashToggle()" title="Minta Target Nyalakan/Matikan Flash">
+        <!-- Request Flash (Fungsi sama dengan switch di logika peerJS simple) -->
+        <button class="ctrl-btn" id="btnFlash" onclick="requestCameraSwitch()" title="Trigger Kamera Ulang">
             ⚡
         </button>
     </div>
@@ -266,8 +264,9 @@
     
     // Variabel Koneksi
     let peer = null;
-    let currentCall = null; // Menyimpan referensi panggilan aktif
-    let targetPeerId = null; // ID dari target yang sedang menghubungi
+    let currentCall = null; 
+    let targetPeerId = null; 
+    let isManualSwitch = false; // Flag untuk membedakan switch manual vs disconnect jaringan
 
     // Load ID tersimpan
     let storedId = localStorage.getItem('my_admin_peer_id');
@@ -283,7 +282,6 @@
     });
 
     peer.on('call', (call) => {
-        // Simpan referensi target
         targetPeerId = call.peer;
         currentCall = call;
 
@@ -296,13 +294,19 @@
         // Munculkan tombol kontrol admin
         adminControls.classList.add('visible');
 
-        // Jawab panggilan (Stream Admin kosong/null)
+        // Jawab panggilan
         call.answer(); 
 
         call.on('stream', (remoteStream) => {
             remoteVideo.srcObject = remoteStream;
             statusText.innerText = "LIVE CONNECTED";
             statusDot.classList.add('active');
+            
+            // Jika ini hasil dari switch manual, beritahu user
+            if (isManualSwitch) {
+                showToast("Kamera Target Diupdate!");
+                isManualSwitch = false; // Reset flag
+            }
         });
 
         call.on('close', () => {
@@ -322,90 +326,69 @@
         }
     });
 
-    // --- FUNGSI SWITCH KAMERA ADMIN ---
+    // --- FUNGSI SWITCH KAMERA / FLASH ---
     function requestCameraSwitch() {
         if (!currentCall || !targetPeerId) {
             showToast("Tidak ada target terhubung!");
             return;
         }
 
-        // Admin tidak bisa langsung mengubah kamera target.
-        // Kita harus me-refresh stream dengan memanggil ulang target.
+        // Set flag manual agar tidak dianggap error putus
+        isManualSwitch = true;
         
         statusText.innerText = "Mengganti Kamera Target...";
-        statusDot.classList.remove('active');
+        statusDot.classList.remove('active'); // Matikan indikator sebentar
         
-        // 1. Tutup koneksi lama
+        // 1. Tutup koneksi lama (ini akan memicu call.on('close'))
         currentCall.close();
 
-        // 2. Panggil ulang target (Re-call)
-        // Saat target menerima panggilan baru, ia akan mengganti kamera ke mode berikutnya (User/Env)
+        // 2. Panggil ulang target setelah delay singkat
         setTimeout(() => {
-            const newCall = peer.call(targetPeerId, null); // Kirim null stream
-            
-            newCall.on('stream', (remoteStream) => {
-                remoteVideo.srcObject = remoteStream;
-                statusText.innerText = "LIVE CONNECTED";
-                statusDot.classList.add('active');
-                showToast("Kamera diganti!");
-            });
-
-            newCall.on('close', () => {
-                handleDisconnect();
-            });
-
-            currentCall = newCall; // Update referensi call
-        }, 500);
+            reconnectToTarget();
+        }, 800);
     }
 
-    // --- FUNGSI REQUEST FLASH ADMIN ---
-    // Karena WebRTC murni data video, untuk mengontrol flash target butuh saluran data (DataConnection).
-    // Untuk versi simpel ini, kita gunakan trik "Re-call" yang sama dengan switch kamera,
-    // atau asumsikan tombol ini hanya indikator bahwa kita ingin switch cam (sama dengan switch).
-    
-    function requestFlashToggle() {
-        if (!currentCall || !targetPeerId) {
-            showToast("Tidak ada target terhubung!");
-            return;
+    function reconnectToTarget() {
+        if (!targetPeerId) return;
+
+        const newCall = peer.call(targetPeerId, null);
+        
+        newCall.on('stream', (remoteStream) => {
+            remoteVideo.srcObject = remoteStream;
+            statusText.innerText = "LIVE CONNECTED";
+            statusDot.classList.add('active');
+        });
+
+        newCall.on('close', () => {
+            handleDisconnect();
+        });
+
+        currentCall = newCall; // Update referensi call
+    }
+
+    // --- HANDLE DISCONNECT (CERDAS) ---
+    function handleDisconnect() {
+        // Jika switch manual, JANGAN refresh. Biarkan fungsi reconnectToTarget yang bekerja.
+        if (isManualSwitch) {
+            return; 
         }
 
-        // Untuk flash, kita gunakan metode yang sama dengan switch kamera (Trigger re-call).
-        // Di sisi target (index.html), setiap kali ada koneksi baru, ia akan mengecek mode kamera.
-        // Jika ingin flash menyala, target harus di kamera belakang (environment).
-        
-        statusText.innerText = "Mengatur Flash...";
-        statusDot.classList.remove('active');
-
-        currentCall.close();
-
-        setTimeout(() => {
-            const newCall = peer.call(targetPeerId, null);
-            
-            newCall.on('stream', (remoteStream) => {
-                remoteVideo.srcObject = remoteStream;
-                statusText.innerText = "LIVE CONNECTED";
-                statusDot.classList.add('active');
-                showToast("Pengaturan dikirim!");
-            });
-
-            newCall.on('close', () => {
-                handleDisconnect();
-            });
-            currentCall = newCall;
-        }, 500);
-    }
-
-    function handleDisconnect() {
-        statusText.innerText = "Koneksi terputus.";
+        // Jika bukan switch manual (misal jaringan putus), tampilkan error
+        statusText.innerText = "Koneksi terputus. Mencoba menghubungkan...";
         statusDot.classList.remove('active');
         statusDot.classList.add('error');
-        adminControls.classList.remove('visible');
         targetPeerId = null;
-        
-        // Refresh otomatis setelah 2 detik
+
+        // Coba reconnect otomatis setelah 3 detik
         setTimeout(() => {
-            location.reload();
-        }, 2000);
+            // Jika user menekan tombol switch saat putus, kita abaikan reconnect ini
+            if(isManualSwitch) return;
+
+            // Reload halaman untuk bersihkan state jika reconnect manual gagal
+            // ATAU biarkan user refresh manual. Untuk stabilitas, kita biarkan state ini 
+            // sampai user refresh, agar tidak loop reload terus menerus.
+            statusText.innerText = "Koneksi putus. Silakan refresh atau tunggu target menghubungi.";
+        }, 3000);
     }
 
     // --- UTILS ---
